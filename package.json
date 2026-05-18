@@ -1,0 +1,13 @@
+{
+  "name": "task-man",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"mvnw.cmd spring-boot:run\" \"cd frontend && npm run dev\"",
+    "backend": "mvnw.cmd spring-boot:run",
+    "frontend": "cd frontend && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
