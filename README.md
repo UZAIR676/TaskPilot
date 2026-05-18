@@ -214,3 +214,4 @@ task-man/
 - `node_modules/` and `target/` are excluded from submission — `npm install` restores frontend deps, and Maven auto-downloads backend deps on first run.
 - The Gemini API key is not included in the submission. Add your own key in `application.properties` before running.
 - The `net.bytebuddy.experimental=true` flag in `pom.xml` is needed if running tests on Java 21+. It has no effect on Java 17."# TaskPilot" 
+"# TaskPilot" 
