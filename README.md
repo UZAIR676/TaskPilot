@@ -215,3 +215,4 @@ task-man/
 - The Gemini API key is not included in the submission. Add your own key in `application.properties` before running.
 - The `net.bytebuddy.experimental=true` flag in `pom.xml` is needed if running tests on Java 21+. It has no effect on Java 17."# TaskPilot" 
 "# TaskPilot" 
+"# TaskPilot" 
