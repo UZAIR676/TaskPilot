@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const BASE_URL = "http://localhost:8080";
+const BASE_URL = "https://taskpilot-production-bfa0.up.railway.app";
 
 const G = {
   injectGlobal: () => {
