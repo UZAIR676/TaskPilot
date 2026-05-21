@@ -2,6 +2,13 @@ import { useEffect, useState } from "react";
 
 const BASE_URL = "https://taskpilot-production-bfa0.up.railway.app";
 
+// User ID - har browser ka alag hoga
+const userId = localStorage.getItem('userId') || (() => {
+  const id = Math.random().toString(36).substr(2, 9);
+  localStorage.setItem('userId', id);
+  return id;
+})();
+
 const G = {
   injectGlobal: () => {
     if (document.getElementById("tm-global")) return;
@@ -58,7 +65,6 @@ function Toast({ msg, visible }) {
   );
 }
 
-// ─── TaskCard ─────────────────────────────────────────────────────────────────
 function TaskCard({ task, onDelete, delay = 0 }) {
   const [summary, setSummary]               = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
@@ -72,7 +78,7 @@ function TaskCard({ task, onDelete, delay = 0 }) {
     if (summary) { setSummaryOpen(true); return; }
     setLoadingSummary(true); setSummaryOpen(true);
     try {
-      const r = await fetch(`${BASE_URL}/tasks/${task.id}/summarize`, { method: "POST" });
+      const r = await fetch(`${BASE_URL}/tasks/${task.id}/summarize`, { method: "POST", headers: { 'X-User-Id': userId } });
       const data = await r.json();
       setSummary(data.summary);
     } catch { setSummary("Could not reach backend."); }
@@ -84,7 +90,7 @@ function TaskCard({ task, onDelete, delay = 0 }) {
     if (subtasks) { setBreakOpen(true); return; }
     setLoadingBreak(true); setBreakOpen(true);
     try {
-      const r = await fetch(`${BASE_URL}/tasks/${task.id}/breakdown`, { method: "POST" });
+      const r = await fetch(`${BASE_URL}/tasks/${task.id}/breakdown`, { method: "POST", headers: { 'X-User-Id': userId } });
       const data = await r.json();
       setSubtasks(data.subtasks || []);
     } catch { setSubtasks([]); }
@@ -97,7 +103,6 @@ function TaskCard({ task, onDelete, delay = 0 }) {
       onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 14px 40px rgba(0,0,0,.35)"; e.currentTarget.querySelector(".tc-actions").style.opacity = 1; }}
       onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.querySelector(".tc-actions").style.opacity = 0; }}
     >
-      {/* 3 action buttons */}
       <div className="tc-actions" style={{ position: "absolute", top: 10, right: 10, display: "flex", gap: 4, opacity: 0, transition: "opacity .15s" }}>
         <button onClick={handleSummarize} title="AI Summary"   style={iconBtn()}>✦</button>
         <button onClick={handleBreakdown} title="AI Breakdown" style={iconBtn()}>⊞</button>
@@ -117,7 +122,6 @@ function TaskCard({ task, onDelete, delay = 0 }) {
         )}
       </div>
 
-      {/* Summary panel */}
       {summaryOpen && (
         <div style={{ marginTop: 10, paddingTop: 10, borderTop: "0.5px solid rgba(255,255,255,.06)", fontSize: 12, color: "#9898c0", lineHeight: 1.6, animation: "slideIn .25s ease" }}>
           {loadingSummary
@@ -126,7 +130,6 @@ function TaskCard({ task, onDelete, delay = 0 }) {
         </div>
       )}
 
-      {/* Breakdown panel */}
       {breakOpen && (
         <div style={{ marginTop: 10, paddingTop: 10, borderTop: "0.5px solid rgba(255,255,255,.06)", animation: "slideIn .25s ease" }}>
           <div style={{ fontSize: 11, color: "#a89afc", fontFamily: "'DM Mono',monospace", marginBottom: 8, letterSpacing: ".06em" }}>⊞ subtasks</div>
@@ -155,7 +158,6 @@ function iconBtn() {
   return { width: 28, height: 28, borderRadius: 8, border: "0.5px solid rgba(255,255,255,.09)", background: "#18181f", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#7878a0", transition: "all .15s", fontFamily: "inherit" };
 }
 
-// ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   G.injectGlobal();
   const [tasks, setTasks]       = useState([]);
@@ -176,8 +178,12 @@ export default function App() {
   };
 
   const loadTasks = async () => {
-    try { const r = await fetch(`${BASE_URL}/tasks`); setTasks(await r.json()); }
-    catch { setTasks([]); }
+    try {
+      const r = await fetch(`${BASE_URL}/tasks`, {
+        headers: { 'X-User-Id': userId }
+      });
+      setTasks(await r.json());
+    } catch { setTasks([]); }
   };
 
   useEffect(() => { loadTasks(); }, []);
@@ -185,14 +191,18 @@ export default function App() {
   const createTask = async () => {
     if (!title.trim()) { showToast("Enter a title first"); return; }
     try {
-      await fetch(`${BASE_URL}/tasks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, description: desc, priority, status, dueDate: dueDate || null }) });
+      await fetch(`${BASE_URL}/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-User-Id": userId },
+        body: JSON.stringify({ title, description: desc, priority, status, dueDate: dueDate || null, userId })
+      });
       setTitle(""); setDesc(""); setPriority("MEDIUM"); setStatus("TODO"); setDueDate("");
       showToast("Task created ✓"); loadTasks();
     } catch { showToast("Backend offline — check server"); }
   };
 
   const deleteTask = async (id) => {
-    try { await fetch(`${BASE_URL}/tasks/${id}`, { method: "DELETE" }); } catch {}
+    try { await fetch(`${BASE_URL}/tasks/${id}`, { method: "DELETE", headers: { 'X-User-Id': userId } }); } catch {}
     setTasks(prev => prev.filter(t => t.id !== id));
     showToast("Task deleted");
   };
@@ -201,7 +211,11 @@ export default function App() {
     if (!aiText.trim()) { showToast("Describe your task first"); return; }
     setAiLoading(true); showToast("AI thinking...");
     try {
-      const r = await fetch(`${BASE_URL}/tasks/suggest`, { method: "POST", headers: { "Content-Type": "text/plain" }, body: aiText });
+      const r = await fetch(`${BASE_URL}/tasks/suggest`, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain", "X-User-Id": userId },
+        body: aiText
+      });
       if (r.ok) { setAiText(""); showToast("AI task created ✦"); loadTasks(); }
       else showToast("AI request failed");
     } catch { showToast("Backend offline — check server"); }
@@ -220,7 +234,6 @@ export default function App() {
 
       <div style={{ position: "relative", zIndex: 1, maxWidth: 880, margin: "0 auto", padding: "2rem 1.5rem" }}>
 
-        {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2.5rem", animation: "fadeDown .5s ease both" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 38, height: 38, borderRadius: 11, background: "linear-gradient(135deg, #7c6dfa, #fa6d8a)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>✦</div>
@@ -238,7 +251,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Create Task */}
         <SectionLabel>create task</SectionLabel>
         <div style={{ ...cardStyle, animation: "fadeUp .5s .05s ease both", marginBottom: "1.5rem" }}>
           <Field label="title">
@@ -272,7 +284,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* AI Suggest */}
         <SectionLabel>ai suggest</SectionLabel>
         <div style={{ ...cardStyle, background: "linear-gradient(135deg, #111118 0%, #13101e 100%)", border: "0.5px solid rgba(124,109,250,.15)", position: "relative", overflow: "hidden", animation: "fadeUp .5s .1s ease both", marginBottom: "1.5rem" }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(124,109,250,.35), transparent)" }} />
@@ -293,7 +304,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Tasks */}
         <SectionLabel>your tasks</SectionLabel>
         <div style={{ display: "flex", gap: 6, marginBottom: "1.2rem", flexWrap: "wrap", animation: "fadeUp .5s .15s ease both" }}>
           {["ALL", "TODO", "IN_PROGRESS", "DONE"].map(f => (
